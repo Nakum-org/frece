@@ -49,11 +49,11 @@ img,svg,canvas{display:block;}
 @media (pointer:coarse){.cursor-dot,.cursor-ring{display:none;}}
 
 /* preloader */
-.preloader{position:fixed;inset:0;z-index:2000;background:var(--bg);display:flex;align-items:flex-end;justify-content:space-between;padding:clamp(28px,6vw,64px);transition:opacity .6s var(--ease),transform .9s var(--ease);}
+.preloader{position:fixed;inset:0;z-index:2000;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:clamp(28px,6vw,64px);transition:opacity .6s var(--ease),transform .9s var(--ease);}
 .preloader.done{opacity:0;transform:translateY(-100%);pointer-events:none;}
 .pre-name{font-family:var(--display);font-weight:600;font-size:clamp(34px,9vw,90px);letter-spacing:-0.04em;line-height:.9;}
 .pre-name em{font-family:var(--display);font-style:normal;font-weight:600;color:var(--mint);}
-.pre-pct{font-family:var(--mono);font-size:clamp(28px,7vw,64px);color:var(--ink-faint);letter-spacing:-0.02em;}
+.pre-pct{position:absolute;left:0;right:0;bottom:clamp(54px,11vh,120px);text-align:center;font-family:var(--mono);font-size:clamp(28px,7vw,64px);color:var(--ink-faint);letter-spacing:-0.02em;}
 .pre-bar{position:absolute;left:0;bottom:0;height:2px;width:0;background:linear-gradient(90deg,var(--mint),var(--violet));}
 
 /* nav */
@@ -333,7 +333,6 @@ main .section.contact>.wrap::before{background:linear-gradient(135deg,rgba(251,1
 <div class="cursor-ring" id="cring"></div>
 
 <div class="preloader" id="preloader">
-  <div class="pre-name">NAVEEN<br><em>T S</em></div>
   <div class="pre-pct" id="prePct">0%</div>
   <div class="pre-bar" id="preBar"></div>
 </div>
@@ -613,7 +612,7 @@ window.addEventListener('load',function(){
   function step(ts){if(!start)start=ts;var p=Math.min((ts-start)/dur,1);var e=1-Math.pow(1-p,3);pct.textContent=Math.round(e*100)+'%';bar.style.width=(e*100)+'%';if(p<1&&!RM){requestAnimationFrame(step);}else{pct.textContent='100%';bar.style.width='100%';setTimeout(finish,260);}}
   if(RM){finish();}else{requestAnimationFrame(step);}
 });
-function finish(){document.getElementById('preloader').classList.add('done');setTimeout(function(){document.getElementById('home').classList.add('in');},120);}
+function finish(){document.getElementById('preloader').classList.add('done');if(window.Mascot&&window.Mascot.flyToHome){window.Mascot.flyToHome(900);}setTimeout(function(){document.getElementById('home').classList.add('in');},120);}
 
 /* ===== progress + nav state + totop ===== */
 var progress=document.getElementById('progress'),totop=document.getElementById('totop');
@@ -742,13 +741,14 @@ document.querySelectorAll('.copy').forEach(function(b){b.addEventListener('click
 </script>
 <style>
 /* ===== character companion (controllable mascot) ===== */
-.mascot{position:fixed;left:clamp(6px,2vw,30px);bottom:clamp(40px,12vh,140px);z-index:450;width:auto;pointer-events:none;transform-origin:left bottom;will-change:transform;transform:translateZ(0);}
+.mascot{position:fixed;top:clamp(96px,14vh,150px);right:clamp(8px,3vw,52px);z-index:450;width:auto;pointer-events:none;transform-origin:center center;will-change:transform;}
+.mascot.is-intro{z-index:2001;}
 .mascot__cv{display:block;height:clamp(190px,32vh,285px);width:auto;filter:drop-shadow(0 14px 20px rgba(0,0,0,.5));-webkit-user-select:none;user-select:none;}
 .mascot__shadow{position:absolute;left:50%;bottom:6px;width:56%;height:12px;transform:translateX(-50%);background:radial-gradient(ellipse at center,rgba(0,0,0,.5),rgba(0,0,0,0) 70%);filter:blur(3px);z-index:-1;}
 .mascot__bubble{position:absolute;left:50%;bottom:calc(100% - 12px);transform:translate(-50%,8px) scale(.92);transform-origin:50% 100%;max-width:240px;background:linear-gradient(180deg,rgba(20,24,33,.97),rgba(12,15,20,.97));color:var(--ink);border:1px solid rgba(94,234,212,.4);border-radius:14px;padding:9px 14px;font:600 13px/1.4 'Inter',system-ui,sans-serif;box-shadow:0 14px 34px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s var(--ease);}
 .mascot__bubble::after{content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);border:7px solid transparent;border-top-color:rgba(12,15,20,.97);}
 .mascot__bubble.show{opacity:1;transform:translate(-50%,0) scale(1);}
-@media(max-width:640px){.mascot{left:4px;}.mascot__cv{height:150px;}}
+@media(max-width:640px){.mascot{right:4px;top:clamp(70px,11vh,96px);}.mascot__cv{height:120px;}}
 </style>
 <!-- ===== character companion ===== -->
 <div id="mascot" class="mascot" aria-hidden="true"><span class="mascot__shadow"></span><div class="mascot__bubble"></div><canvas class="mascot__cv"></canvas></div>
@@ -812,11 +812,28 @@ window.Mascot=(function(){
   function neutral(){ if(playIv){clearInterval(playIv);playIv=null;} setTarget(M.nA); }
   function show(){ pos.y=0; apply(); }
   function hide(){ return moveTo(pos.x,260); }
-  // entrance: slide up after load
-  pos.y=420; apply();
-  function enter(){ if(RM){pos.y=0;el.style.transition='none';apply();return;} setTimeout(function(){moveTo(0,0,1200);},650); }
-  if(document.readyState==='complete')enter(); else window.addEventListener('load',enter);
+  // entrance: appear centred over the preloader, then fly to the hero top-right
+  var introScale=1;
+  function introStart(){
+    if(RM){ pos.x=0;pos.y=0;sc=1; el.style.transition='none'; apply(); return; }
+    var r=el.getBoundingClientRect();
+    var rcx=r.left+r.width/2, rcy=r.top+r.height/2;
+    var vw=window.innerWidth||1, vh=window.innerHeight||1;
+    introScale=Math.max(1,Math.min(3,(vh*0.6)/(r.height||1)));
+    pos.x=vw/2-rcx; pos.y=vh*0.46-rcy; sc=introScale;
+    el.classList.add('is-intro'); el.style.transition='none'; apply();
+  }
+  function flyToHome(dur){
+    dur=dur||900;
+    el.style.transition='transform '+dur+'ms cubic-bezier(.22,.61,.36,1)';
+    pos.x=0; pos.y=0; sc=1; apply();
+    setTimeout(function(){ el.classList.remove('is-intro'); mRecalc(); }, dur+40);
+    return wait(RM?0:dur);
+  }
+  introStart();
+  if(document.readyState==='complete'){ setTimeout(flyToHome, 60); }
   var api={draw:draw,setFrame:setFrame,play:play,gesture:gesture,turn:turn,neutral:neutral,
+           flyToHome:flyToHome,introStart:introStart,
            moveTo:moveTo,moveBy:moveBy,home:home,scale:scale,say:say,hush:hush,show:show,hide:hide,el:el,meta:M};
   return api;
 })();
